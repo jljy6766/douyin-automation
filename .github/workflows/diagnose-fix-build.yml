@@ -1,0 +1,122 @@
+name: Diagnose and Fix Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+        
+    - name: Download and setup Gradle
+      run: |
+        wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
+        unzip gradle-8.4-bin.zip
+        echo "GRADLE_HOME=$PWD/gradle-8.4" >> $GITHUB_ENV
+        echo "$PWD/gradle-8.4/bin" >> $GITHUB_PATH
+        
+    - name: Diagnose project structure
+      run: |
+        echo "=== Current directory ==="
+        pwd
+        echo ""
+        echo "=== All files and directories ==="
+        ls -la
+        echo ""
+        echo "=== Looking for app directory ==="
+        find . -name "app" -type d
+        echo ""
+        echo "=== Looking for build.gradle files ==="
+        find . -name "build.gradle" -type f
+        echo ""
+        echo "=== Looking for gradle files ==="
+        find . -name "*.gradle*" -type f
+        echo ""
+        echo "=== Directory structure ==="
+        tree -L 3 || find . -type d | head -20
+        
+    - name: Fix project structure
+      run: |
+        echo "=== Fixing project structure ==="
+        
+        # Check if app is in jiaoben/app
+        if [ -d "jiaoben/app" ]; then
+          echo "Found jiaoben/app, moving to root"
+          mv jiaoben/app ./
+        fi
+        
+        # Check if build.gradle is in jiaoben
+        if [ -f "jiaoben/build.gradle" ]; then
+          echo "Found jiaoben/build.gradle, moving to root"
+          mv jiaoben/build.gradle ./
+        fi
+        
+        # Check if settings.gradle is in jiaoben
+        if [ -f "jiaoben/settings.gradle" ]; then
+          echo "Found jiaoben/settings.gradle, moving to root"
+          mv jiaoben/settings.gradle ./
+        fi
+        
+        # Check if gradle.properties is in jiaoben
+        if [ -f "jiaoben/gradle.properties" ]; then
+          echo "Found jiaoben/gradle.properties, moving to root"
+          mv jiaoben/gradle.properties ./
+        fi
+        
+        echo ""
+        echo "=== After fixing structure ==="
+        ls -la
+        echo ""
+        echo "=== App directory contents ==="
+        if [ -d "app" ]; then
+          ls -la app/
+        else
+          echo "app directory not found!"
+        fi
+        
+    - name: Clean all files
+      run: |
+        echo "=== Cleaning all files ==="
+        # Remove trailing spaces from all gradle files
+        find . -name "*.gradle" -exec sed -i 's/[[:space:]]*$//' {} \;
+        find . -name "*.properties" -exec sed -i 's/[[:space:]]*$//' {} \;
+        
+        # Ensure proper line endings
+        find . -name "*.gradle" -exec dos2unix {} \; 2>/dev/null || true
+        find . -name "*.properties" -exec dos2unix {} \; 2>/dev/null || true
+        
+        echo "=== gradle.properties content ==="
+        cat gradle.properties
+        echo ""
+        echo "=== app/build.gradle content ==="
+        if [ -f "app/build.gradle" ]; then
+          cat app/build.gradle
+        else
+          echo "app/build.gradle not found!"
+        fi
+        
+    - name: Build APK
+      run: |
+        echo "=== Starting build ==="
+        gradle clean
+        gradle assembleDebug --stacktrace
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: douyin-automation-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
