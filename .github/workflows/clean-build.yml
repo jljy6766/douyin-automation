@@ -1,0 +1,68 @@
+name: Clean Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+        
+    - name: Download and setup Gradle
+      run: |
+        wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
+        unzip gradle-8.4-bin.zip
+        echo "GRADLE_HOME=$PWD/gradle-8.4" >> $GITHUB_ENV
+        echo "$PWD/gradle-8.4/bin" >> $GITHUB_PATH
+        
+    - name: Clean all files
+      run: |
+        echo "=== Cleaning all files ==="
+        # Remove trailing spaces from all gradle files
+        find . -name "*.gradle" -exec sed -i 's/[[:space:]]*$//' {} \;
+        find . -name "*.properties" -exec sed -i 's/[[:space:]]*$//' {} \;
+        
+        # Ensure proper line endings
+        find . -name "*.gradle" -exec dos2unix {} \; 2>/dev/null || true
+        find . -name "*.properties" -exec dos2unix {} \; 2>/dev/null || true
+        
+        echo "=== gradle.properties content ==="
+        cat gradle.properties
+        echo "=== app/build.gradle content ==="
+        cat app/build.gradle
+        
+    - name: Show project structure
+      run: |
+        echo "=== Project structure ==="
+        find . -type f -name "*.gradle*" -o -name "*.xml" | head -10
+        echo ""
+        echo "=== Key files ==="
+        ls -la
+        echo ""
+        ls -la app/
+        
+    - name: Build APK
+      run: |
+        echo "=== Starting build ==="
+        gradle clean
+        gradle assembleDebug --stacktrace
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: douyin-automation-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
