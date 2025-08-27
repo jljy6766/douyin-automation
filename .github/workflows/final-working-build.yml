@@ -1,0 +1,97 @@
+name: Final Working Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Fix project structure
+      run: |
+        echo "=== Current structure ==="
+        find . -name "*.gradle*" -type f
+        echo ""
+        echo "=== Moving files to correct locations ==="
+        
+        # If app is in jiaoben/app, move it to root
+        if [ -d "jiaoben/app" ]; then
+          echo "Moving jiaoben/app to app"
+          mv jiaoben/app ./
+        fi
+        
+        # If build.gradle is in jiaoben, move it to root
+        if [ -f "jiaoben/build.gradle" ]; then
+          echo "Moving jiaoben/build.gradle to build.gradle"
+          mv jiaoben/build.gradle ./
+        fi
+        
+        # If settings.gradle is in jiaoben, move it to root
+        if [ -f "jiaoben/settings.gradle" ]; then
+          echo "Moving jiaoben/settings.gradle to settings.gradle"
+          mv jiaoben/settings.gradle ./
+        fi
+        
+        # If gradle.properties is in jiaoben, move it to root
+        if [ -f "jiaoben/gradle.properties" ]; then
+          echo "Moving jiaoben/gradle.properties to gradle.properties"
+          mv jiaoben/gradle.properties ./
+        fi
+        
+        echo ""
+        echo "=== Fixed structure ==="
+        find . -name "*.gradle*" -type f
+        
+    - name: Fix gradle.properties
+      run: |
+        echo "=== Fixing gradle.properties ==="
+        # Remove trailing spaces from gradle.properties
+        sed -i 's/[[:space:]]*$//' gradle.properties
+        echo "=== gradle.properties content ==="
+        cat gradle.properties
+        
+    - name: Download and setup Gradle
+      run: |
+        wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
+        unzip gradle-8.4-bin.zip
+        echo "GRADLE_HOME=$PWD/gradle-8.4" >> $GITHUB_ENV
+        echo "$PWD/gradle-8.4/bin" >> $GITHUB_PATH
+        
+    - name: Verify project structure
+      run: |
+        echo "=== Project structure ==="
+        find . -name "*.gradle*" -type f
+        echo ""
+        echo "=== Settings.gradle ==="
+        cat settings.gradle
+        echo ""
+        echo "=== Root build.gradle ==="
+        cat build.gradle
+        echo ""
+        echo "=== App build.gradle ==="
+        cat app/build.gradle
+        echo ""
+        echo "=== gradle.properties ==="
+        cat gradle.properties
+        
+    - name: Build APK
+      run: |
+        gradle assembleDebug --info --stacktrace
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: douyin-automation-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
