@@ -1,0 +1,139 @@
+name: Fix Resources Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+        
+    - name: Download and setup Gradle
+      run: |
+        wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
+        unzip gradle-8.4-bin.zip
+        echo "GRADLE_HOME=$PWD/gradle-8.4" >> $GITHUB_ENV
+        echo "$PWD/gradle-8.4/bin" >> $GITHUB_PATH
+        
+    - name: Diagnose project structure
+      run: |
+        echo "=== Current directory ==="
+        pwd
+        echo ""
+        echo "=== All files and directories ==="
+        ls -la
+        echo ""
+        echo "=== Looking for app directory ==="
+        find . -name "app" -type d
+        echo ""
+        echo "=== Looking for src directory ==="
+        find . -name "src" -type d
+        echo ""
+        echo "=== Looking for main directory ==="
+        find . -name "main" -type d
+        echo ""
+        echo "=== Looking for res directory ==="
+        find . -name "res" -type d
+        echo ""
+        echo "=== Directory structure ==="
+        tree -L 4 || find . -type d | head -30
+        
+    - name: Create missing directories and files
+      run: |
+        echo "=== Creating missing directories and files ==="
+        
+        # Create res directory structure
+        mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/res/mipmap-hdpi
+        mkdir -p app/src/main/res/drawable
+        
+        # Create styles.xml
+        cat > app/src/main/res/values/styles.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+</resources>
+EOF
+
+        # Create colors.xml
+        cat > app/src/main/res/values/colors.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#6200EE</color>
+    <color name="colorPrimaryDark">#3700B3</color>
+    <color name="colorAccent">#03DAC5</color>
+</resources>
+EOF
+
+        # Create ic_launcher.xml
+        cat > app/src/main/res/mipmap-hdpi/ic_launcher.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/colorPrimary"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+EOF
+
+        # Create ic_launcher_round.xml
+        cat > app/src/main/res/mipmap-hdpi/ic_launcher_round.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/colorPrimary"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+EOF
+
+        # Create ic_launcher_foreground.xml
+        cat > app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,54L64,54A2,2 0,0 1,66 56L66,76A2,2 0,0 1,64 78L44,78A2,2 0,0 1,42 76L42,56A2,2 0,0 1,44 54z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,30L64,30A2,2 0,0 1,66 32L66,52A2,2 0,0 1,64 54L44,54A2,2 0,0 1,42 52L42,32A2,2 0,0 1,44 30z"/>
+</vector>
+EOF
+
+        echo "=== Created files ==="
+        find app/src/main/res -name "*.xml" -type f
+        echo ""
+        echo "=== Directory structure after creation ==="
+        tree app/src/main/res || find app/src/main/res -type f
+        
+    - name: Build APK
+      run: |
+        echo "=== Starting build ==="
+        gradle clean
+        gradle assembleDebug --stacktrace
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: douyin-automation-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
