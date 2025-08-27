@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">抖音自动化助手</string>
+    <string name="accessibility_service_description">用于自动化操作抖音应用，包括进入直播间和点赞功能</string>
+    <string name="enable_accessibility">启用无障碍服务</string>
+    <string name="enter_douyin_id">输入抖音号</string>
+    <string name="start_automation">开始自动化</string>
+    <string name="stop_automation">停止自动化</string>
+    <string name="auto_like">自动点赞</string>
+    <string name="enter_live_room">进入直播间</string>
+    <string name="accessibility_not_enabled">请先启用无障碍服务</string>
+    <string name="automation_started">自动化已开始</string>
+    <string name="automation_stopped">自动化已停止</string>
+</resources> 
